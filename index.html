@@ -1,0 +1,135 @@
+const express = require('express');
+const mysql = require('mysql');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const app = express();
+const port = 3000;
+
+// Configuración de la base de datos
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: 'Unicah123',
+    database: 'inventario_unicah'
+});
+
+db.connect(err => {
+    if (err) {
+        console.error('❌ Error conectando a la base de datos:', err);
+    } else {
+        console.log('✅ Conectado a la base de datos');
+    }
+});
+
+// Configuración de middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Servir la interfaz principal con mejor CSS y funcionalidad para ocultar/mostrar registro
+app.get('/', (req, res) => {
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Login - Inventario UNICAH</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                background-color: #f4f4f4;
+            }
+            .container {
+                width: 320px;
+                margin: auto;
+                padding: 20px;
+                border-radius: 8px;
+                background: white;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            h2, h3 {
+                color: #333;
+            }
+            input {
+                width: 100%;
+                padding: 10px;
+                margin: 8px 0;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+            button {
+                width: 100%;
+                padding: 10px;
+                background: #28a745;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #218838;
+            }
+            #registro {
+                display: none;
+                margin-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Iniciar Sesión</h2>
+            <input type="text" id="usuario" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button onclick="login()">Ingresar</button>
+            <button onclick="toggleRegistro()">Registrarse</button>
+            
+            <div id="registro">
+                <h3>Registro</h3>
+                <input type="text" id="nuevoUsuario" placeholder="Nuevo Usuario">
+                <input type="password" id="nuevoPassword" placeholder="Nueva Contraseña">
+                <button onclick="registrar()">Registrar</button>
+            </div>
+        </div>
+        <script>
+            function toggleRegistro() {
+                const registroDiv = document.getElementById('registro');
+                registroDiv.style.display = registroDiv.style.display === 'none' ? 'block' : 'none';
+            }
+            async function login() {
+                const usuario = document.getElementById('usuario').value;
+                const password = document.getElementById('password').value;
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+                const result = await response.text();
+                alert(result);
+            }
+            async function registrar() {
+                const usuario = document.getElementById('nuevoUsuario').value;
+                const password = document.getElementById('nuevoPassword').value;
+                const response = await fetch('/registrar-usuario', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+                const result = await response.text();
+                alert(result);
+            }
+        </script>
+    </body>
+    </html>`;
+    res.send(htmlContent);
+});
+
+// Iniciar servidor
+app.listen(port, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
+});
+
+

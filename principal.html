@@ -1,0 +1,138 @@
+const express = require('express');
+const mysql = require('mysql');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const app = express();
+const port = 3000;
+
+// Configuración de la base de datos
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'inventario_unicah'
+});
+
+db.connect(err => {
+  if (err) {
+    console.error('Error conectando a la base de datos:', err);
+  } else {
+    console.log('Conectado a la base de datos');
+  }
+});
+
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Endpoint para registrar productos
+app.post('/registrar-producto', (req, res) => {
+  const { nombre, detalles, cantidad, categoria } = req.body;
+  const query = 'INSERT INTO productos (nombre, detalles, cantidad, categoria) VALUES (?, ?, ?, ?)';
+  db.query(query, [nombre, detalles, cantidad, categoria], (err, result) => {
+    if (err) {
+      res.status(500).send('Error en la base de datos');
+    } else {
+      res.send('Producto registrado con éxito');
+    }
+  });
+});
+
+// Endpoint para obtener productos
+app.get('/productos', (req, res) => {
+  const query = 'SELECT * FROM productos';
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).send('Error obteniendo productos');
+    } else {
+      res.json(results);
+    }
+  });
+});
+
+// Servir la interfaz principal
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Crear archivo HTML para la pantalla principal y registro de productos
+const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pantalla Principal - Inventario UNICAH</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { width: 500px; margin: auto; padding: 20px; border: 1px solid #ccc; }
+        input, button { display: block; width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Bienvenido al Sistema de Inventario</h2>
+        <button onclick="window.location.href='registro-producto.html'">Registrar Producto</button>
+        <button onclick="cargarProductos()">Ver Productos</button>
+        <div id="listaProductos"></div>
+    </div>
+    <script>
+        async function cargarProductos() {
+            const response = await fetch('/productos');
+            const productos = await response.json();
+            const lista = document.getElementById('listaProductos');
+            lista.innerHTML = '<h3>Lista de Productos</h3>' + productos.map(p => `<p>${p.nombre} - ${p.detalles} - ${p.cantidad}</p>`).join('');
+        }
+    </script>
+</body>
+</html>`;
+fs.writeFileSync(path.join(__dirname, 'public', 'index.html'), htmlContent);
+
+const registroProductoContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Productos</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { width: 300px; margin: auto; padding: 20px; border: 1px solid #ccc; }
+        input, button { display: block; width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Registrar Producto</h2>
+        <input type="text" id="nombre" placeholder="Nombre del producto">
+        <input type="text" id="detalles" placeholder="Detalles del producto">
+        <input type="number" id="cantidad" placeholder="Cantidad">
+        <input type="text" id="categoria" placeholder="Categoría">
+        <button onclick="registrarProducto()">Registrar</button>
+        <button onclick="window.location.href='index.html'">Volver</button>
+    </div>
+    <script>
+        async function registrarProducto() {
+            const nombre = document.getElementById('nombre').value;
+            const detalles = document.getElementById('detalles').value;
+            const cantidad = document.getElementById('cantidad').value;
+            const categoria = document.getElementById('categoria').value;
+            const response = await fetch('/registrar-producto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, detalles, cantidad, categoria })
+            });
+            const result = await response.text();
+            alert(result);
+        }
+    </script>
+</body>
+</html>`;
+fs.writeFileSync(path.join(__dirname, 'public', 'registro-producto.html'), registroProductoContent);
+
+// Servidor corriendo
+app.listen(port, () => {
+  console.log(`Servidor corriendo en http://localhost:${port}`);
+});

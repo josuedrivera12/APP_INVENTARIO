@@ -1,0 +1,86 @@
+const express = require('express');
+const mysql = require('mysql');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const PDFDocument = require('pdfkit');
+const app = express();
+const port = 3000;
+
+// Configuración de la base de datos
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',
+  password: '',
+  database: 'inventario_unicah'
+});
+
+db.connect(err => {
+  if (err) {
+    console.error('Error conectando a la base de datos:', err);
+  } else {
+    console.log('Conectado a la base de datos');
+  }
+});
+
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Endpoint para generar reporte en PDF
+app.get('/reporte-facturas', (req, res) => {
+  const query = 'SELECT * FROM facturas';
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).send('Error obteniendo facturas');
+    } else {
+      const doc = new PDFDocument();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=reporte_facturas.pdf');
+      doc.pipe(res);
+      
+      doc.fontSize(16).text('Reporte de Facturas', { align: 'center' });
+      doc.moveDown();
+      results.forEach(factura => {
+        doc.fontSize(12).text(`ID: ${factura.id}, Fecha: ${factura.fecha}, Solicitante: ${factura.solicitante}, Responsable: ${factura.responsable}, Área: ${factura.area}`);
+        doc.moveDown();
+      });
+      doc.end();
+    }
+  });
+});
+
+// Crear archivo HTML para ver reportes
+const reporteContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Facturas</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .container { width: 400px; margin: auto; padding: 20px; border: 1px solid #ccc; }
+        button { display: block; width: 100%; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Generar Reporte</h2>
+        <button onclick="generarReporte()">Descargar Reporte en PDF</button>
+        <button onclick="window.location.href='index.html'">Volver</button>
+    </div>
+    <script>
+        function generarReporte() {
+            window.open('/reporte-facturas', '_blank');
+        }
+    </script>
+</body>
+</html>`;
+fs.writeFileSync(path.join(__dirname, 'public', 'reporte.html'), reporteContent);
+
+// Servidor corriendo
+app.listen(port, () => {
+  console.log(`Servidor corriendo en http://localhost:${port}`);
+});
